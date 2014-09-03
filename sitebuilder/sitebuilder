@@ -5,7 +5,7 @@
 # Provisions a new site in Acquia's hosting environments using it's Cloud API.
 #
 # Authors:
-#   John Kealy <jkealy@ucsf.edu>
+#   John Kealy <john.kealy@ucsf.edu>
 #   Richard Baker <richard.baker@ucsf.edu>
 #   Stefan Topfstedt <stefan.topfstedt@ucsf.edu>
 #
