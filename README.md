@@ -4,26 +4,28 @@ The Utitlity Scripts are primaryly useful if you are on Acquia Cloud hosting. Po
 
 ###Iterator:
 Iterator Script runs through drupal sites and runs drush based on file added to "deploy folder". Can also be run via command line.
-####Example file command:
-<pre>
-updb|chosen
-cc all|ucsf_images_gallery
-</pre>
 
 ####Syntax
 <pre>
 Drush command|target module
 </pre>
 
-The first would run a update on all sites with chosen module enabled.
+####Example file command:
+<pre>
+updb|chosen
+cc all|ucsf_images_gallery
+</pre>
+
+The first would run a update on all sites with chosen module enabled.<br>
 The second would run status on all sites with the ucsf pharmacy image module.
 
-This script is a workhorse for us. We use this with post deploy scripts that have the git date tag. Example- 
+This script is a workhorse for us. We use this with post deploy scripts that have the git date tag.<br> Example
 <pre>
 2014-09-02
 </pre>
 
 This means that the same drush commands run in test and production along with the deployment of the git tag.
+
 That's a Good Thing!
 
 ###Module Madness:
