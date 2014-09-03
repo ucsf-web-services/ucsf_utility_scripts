@@ -3,6 +3,9 @@
 The Utitlity Scripts are primaryly useful if you are on Acquia Cloud hosting. Posting on Github so that other Acquia clients can use and collaborate on the scripts. These are provided as is with no support. That being said, we are happy to collaborate with other groups, particularly other Higher Ed and Non-profits.
 
 ###Iterator:
+
+This is a server-side script that needs to be executed from within your `/docroot` directory.
+
 Iterator Script runs through drupal sites and runs drush based on file added to "deploy folder". Can also be run via command line.
 
 ####Syntax
@@ -27,6 +30,21 @@ This script is a workhorse for us. We use this with post deploy scripts that hav
 This means that the same drush commands run in test and production along with the deployment of the git tag.
 
 That's a Good Thing!
+
+####Installation
+
+Add the `iterator` script to the `/scripts` directory underneath your repository root.
+
+####Running Iterator
+
+Execute iterator from within your `/docroot` whilst providing it with the path to your commands script and the indicator of the environment you're operating in.
+
+For example, if you want to execute the Drush commands defined in `/deploy/2014-09-02` directory in your *production server` run this from withing `/docroot`.
+
+```bash
+./../scripts/iterator file ./../deploy/2014-09-02 prod
+```
+
 
 ###Module Madness:
 
