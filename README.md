@@ -1,5 +1,6 @@
 #ucsf_utility_scripts
 
+The Utitlity Scripts are primaryly useful if you are on Acquia Cloud hosting. Posting on Github so that other Acquia client can use and collaborate on the scripts. These are provided as is with no support. That being said, we are happy to collaborate with other groups, particularly other Higher Ed and Non-profits.
 
 ##Iterator Script:
 Iterator Script runs through drupal sites and runs drush based on file added to "deploy folder". Can also be run via command line.
@@ -15,7 +16,7 @@ The second would run status on all sites with the ucsf pharmacy image module.
 
 ##Module Madness
 
-Module Madness is a reporting script
+Module Madness is a reporting script. It let's you know which site is running which module. Useful when managing 500+ sites!
 
 
 ##Site Builder
