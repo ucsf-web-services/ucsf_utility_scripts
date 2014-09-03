@@ -1,6 +1,6 @@
 #ucsf_utility_scripts
 
-The Utitlity Scripts are primaryly useful if you are on Acquia Cloud hosting. Posting on Github so that other Acquia client can use and collaborate on the scripts. These are provided as is with no support. That being said, we are happy to collaborate with other groups, particularly other Higher Ed and Non-profits.
+The Utitlity Scripts are primaryly useful if you are on Acquia Cloud hosting. Posting on Github so that other Acquia clients can use and collaborate on the scripts. These are provided as is with no support. That being said, we are happy to collaborate with other groups, particularly other Higher Ed and Non-profits.
 
 ##Iterator Script:
 Iterator Script runs through drupal sites and runs drush based on file added to "deploy folder". Can also be run via command line.
