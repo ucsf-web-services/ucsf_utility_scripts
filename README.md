@@ -35,7 +35,7 @@ That's a Good Thing!
 
 Add the `iterator` script to the `/scripts` directory underneath your repository root.
 
-####Running Iterator
+####Running Iterator Manually
 
 Execute iterator from within your `/docroot` whilst providing it with the path to your commands script and the indicator of the environment you're operating in.
 
@@ -45,6 +45,13 @@ For example, if you want to execute the Drush commands defined in `/deploy/2014-
 ./../scripts/iterator file ./../deploy/2014-09-02 prod
 ```
 
+Alternatively, you may give iterator a single (piped) Drush command (see syntax described above) directly, instead of a file path. Use `run` as the second argument, followed by the Drush command in quotes.
+
+E.g. this will clear all caches on sites in the *test* environment that have the Views module enabled.
+
+```bash
+./../scripts/iterator run "cc all|views" test
+```
 
 ###Module Madness:
 
