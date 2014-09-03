@@ -22,14 +22,6 @@ cc all|ucsf_images_gallery
 The first would run a update on all sites with chosen module enabled.<br>
 The second would run status on all sites with the ucsf pharmacy image module.
 
-This script is a workhorse for us. We use this with post deploy scripts that have the git date tag.<br> Example
-<pre>
-2014-09-02
-</pre>
-
-This means that the same drush commands run in test and production along with the deployment of the git tag.
-
-That's a Good Thing!
 
 ####Installation
 
@@ -39,10 +31,10 @@ Add the `iterator` script to the `/scripts` directory underneath your repository
 
 Execute iterator from within your `/docroot` whilst providing it with the path to your commands script and the indicator of the environment you're operating in.
 
-For example, if you want to execute the Drush commands defined in `/deploy/2014-09-02` directory in your *production server` run this from withing `/docroot`.
+For example, if you want to execute the Drush commands defined in the `~/runthis.txt` script on your *production* server,  un this from withing `/docroot`.
 
 ```bash
-./../scripts/iterator file ./../deploy/2014-09-02 prod
+./../scripts/iterator file ~/runthis.txt prod
 ```
 
 Alternatively, you may give iterator a single (piped) Drush command (see syntax described above) directly, instead of a file path. Use `run` as the second argument, followed by the Drush command in quotes.
@@ -52,6 +44,24 @@ E.g. this will clear all caches on sites in the *test* environment that have the
 ```bash
 ./../scripts/iterator run "cc all|views" test
 ```
+####Running Iterator automatically
+
+We use a tag naming convention and the Acquia Cloud API "post-code-deploy" hook to run iterator automatically in our test and production enviroments immediately after each tag deployment.
+
+Based on the name of the release tag that gets pushed, the hook script will find the corresponding commands-script in the `/deploy` directory and call the Iterator script with it.
+
+E.g. If we are pushing the release tag `2014-09-02` to production, the hook script will search for a script named `2014-09-02` in the `/deploy` directory on your server. I found, iterator will be called with with that script.
+
+This is roughly equivalent to manually running 
+
+```bash
+./../scripts/iterator file ./../deploy/2014-09-02 <env>
+```
+
+This means that the same Drush commands are applied during deployment in test and production as we push release tags forward.
+
+That's a Good Thing!
+
 
 ###Module Madness:
 
