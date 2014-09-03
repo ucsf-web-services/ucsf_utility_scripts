@@ -32,6 +32,9 @@ That's a Good Thing!
 
 Module Madness is a reporting script. It let's you know which site is running which module. Useful when managing 500+ sites!
 
+####Dependencies
+
+Piggy-bags on the Iterator script and requires the custom Drush commands defined in `ucsf.drush.inc`, so make sure that Drush can find them.
 
 ###Site Builder:
 
