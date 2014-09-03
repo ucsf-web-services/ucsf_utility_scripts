@@ -31,7 +31,7 @@ Add the `iterator` script to the `/scripts` directory underneath your repository
 
 Execute iterator from within your `/docroot` whilst providing it with the path to your commands script and the indicator of the environment you're operating in.
 
-For example, if you want to execute the Drush commands defined in the `~/runthis.txt` script on your *production* server,  un this from withing `/docroot`.
+For example, if you want to execute the Drush commands defined in the `~/runthis.txt` script on your *production* server,  run this from within `/docroot`.
 
 ```bash
 ./../scripts/iterator file ~/runthis.txt prod
