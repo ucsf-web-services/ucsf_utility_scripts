@@ -1,0 +1,214 @@
+#!/bin/bash
+
+#announce execution
+NEWLINE="printf \n"
+$NEWLINE
+STARTTIME=$SECONDS
+echo "Iterator Start"
+TIMESTAMP='date +%Y%m%d_%H%M%S'
+STARTSTAMP="echo `$TIMESTAMP`"
+$STARTSTAMP
+
+#ARGUMENTS
+#file or run ($1)
+if [[ $1 = "file" ]] || [[ $1 = "deploy" ]]
+then
+  #read file lines
+  FILENAME="$2"
+  if [[ -a $FILENAME ]]
+  then
+    while read -r line || [[ -n "$line" ]]
+    do
+      NAME=$line
+      #print the file as taken for the log
+      echo $NAME
+      ACTIONS+="${NAME}\n"
+    done < "$FILENAME"
+  else
+    echo "Action file ${FILENAME} not found, Exiting"
+    exit
+  fi
+  #begin -- every deploy -- this could be used if needed
+  #if [[ $1 = "deploy" ]]
+  #then
+    #every deploy actions go here
+  #  ACTIONS+="cc all\n"
+    #end every deploy actions
+  #fi
+  ACTIONS=`echo -e $ACTIONS`
+
+elif [[ $1 = "run" ]]
+then
+  #or it is provided as an argument
+  ACTIONS="$2"
+fi
+#Other sexy arguments
+ACENV=$3
+SITES=$4
+#END ARGUMENTS
+
+
+#set the execution directory (docroot) relative to the scripts directory
+SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPTDIR"
+cd "../docroot/sites"
+echo "Executing in `pwd`"
+
+#This is like a string constant for matching
+TRUTHY='TRUTHY'
+
+#set up environment -specifics
+if [[ $ACENV = "prod" || $ACENV = "test" ]]
+then
+  #treat it like production
+  DRUSH="drush5"
+  SITEPRE=''
+  FORMAT='--short'
+elif [[ $ACENV = "dev" ]]
+then
+  #treat it as dev
+  DRUSH="drush5"
+  SITEPRE='dev.'
+  FORMAT='--short'
+else
+  #assume it's local
+  DRUSH="drush"
+  SITEPRE='dev.'
+  FORMAT='--format=list'
+  FORMAT='--short'
+  #add assumption to header info
+  echo "Acting as local -- Experimental"
+fi
+$NEWLINE
+#end of header info
+
+if [[ -z $SITES ]]
+then
+  #if sites are not specified, fill in a default
+  SITES=`$DRUSH sa @sites $FORMAT`
+else
+  #look for an @symbol in a specified site name
+  ATPOS=`echo $SITES | sed -n "s/[@].*//p" | wc -c`
+  if [[ $ATPOS = 1 ]]
+  then
+    #if there is, pull it in as a symbol
+    SITES=`$DRUSH sa $SITES $FORMAT`
+  fi
+fi
+
+#preprocess the site list
+for PRESITE in $SITES
+do
+  #cut past Drush # hasmark
+  PRESITE=${PRESITE:`echo $PRESITE | sed -n "s/[\#].*//p" | wc -c`}
+  #remove dev prefix
+  PRESITE=${PRESITE#"dev."}
+  #make it a newline, yeah
+  CLEANSITES+="${PRESITE}\n"
+done
+#turn the output into a unique list
+CLEANSITES=`echo -e $CLEANSITES|sort -u`
+
+#process the executables for the site list
+for SITE in $CLEANSITES
+do
+  #site start time
+  SITETIME=$SECONDS
+  #append the dev. prefix if necessary
+  SITE=${SITEPRE}${SITE}
+  #reset prevmodule (skit test) stuff
+  PREVMODULE=''
+  PREVMODEXIST=''
+
+  #read all the lines of the action (see done)
+  while read -r line
+  do
+    #set current action to the line
+    ACTION="$line"
+    #look for the pipe character ([\|] was some terrible nightmare)
+    PIPEPOS=`echo "$ACTION" | sed -n "s/[|].*//p" | wc -c`
+    #see where the pipe character is
+    if [[ $PIPEPOS -gt 0 ]]
+    then
+      #set command
+      COMMANDS="${ACTION:0:$PIPEPOS-1}"
+      MODULE="${ACTION:$PIPEPOS}"
+    else
+      #there is no module, just set command
+      COMMANDS="$ACTION"
+      unset -v MODULE
+    fi
+
+    if [[ -z $MODULE ]]
+    then
+      #if no module, set it truthy
+      MODEXIST="$TRUTHY"
+    else
+      #if the previous test was the same
+      if [[ $MODULE = $PREVMODULE ]]
+      then
+        #then the existance variable is the same
+        MODEXIST="$PREVMODEXIST"
+      else
+        #otherwise run the module test
+        #todo? Drupal wants to run updb for all INSTALLED not just ENABLED modules
+        MODEXIST=`$DRUSH -l $SITE php-eval "if(module_exists('$MODULE')){echo '$TRUTHY';}" 2> /dev/null`
+        #the following version might work in more cases, and allows installed to be checked but is much slower
+        #MODEXIST=$($DRUSH -l $SITE pmi $MODULE --fields=status --format=list 2> /dev/null)
+        MODEXIST=`echo $MODEXIST|cut -d' ' -f1`
+      fi
+      #set the previous run variables for the next action
+      PREVMODULE="$MODULE"
+      PREVMODEXIST="$MODEXIST"
+    fi
+
+    #debug
+    #echo $SITE
+    #echo $MODEXIST
+    #$TIMESTAMP
+    #echo "$ACTION"
+    #echo "$COMMANDS"
+    #echo $MODULE
+
+    #if the module test is truthy
+    if [[ $MODEXIST = $TRUTHY ]]
+    #if [[ $MODEXIST = $MODSTATUS ]]
+    then
+      #spit out the site name
+      echo $SITE
+
+      if [[ -n $COMMANDS ]]
+      then
+
+        #RUN THE DRUSH COMMAND
+        if [[ $COMMANDS != "quiet" ]]
+        then
+          echo $DRUSH -y -l $SITE $COMMANDS
+        fi
+        eval $DRUSH -y -l $SITE $COMMANDS
+
+      fi
+      
+      #PRINT A TIMESTAMP WHEN EXECUTION IS COMPLETE
+      if [[ $COMMANDS != "quiet" ]]
+      then
+        ELAPSED_TIME=$(($SECONDS - $SITETIME))
+        echo "$(($ELAPSED_TIME/60)) min $(($ELAPSED_TIME%60)) sec"
+        $NEWLINE
+      fi
+
+
+
+    #end of module test ok loop
+    fi
+  #End of action loop
+  done <<< "$ACTIONS"
+#end of site loop
+done
+#final timestamps
+echo "Iterator END"
+$STARTSTAMP
+$TIMESTAMP
+ELAPSED_TIME=$(($SECONDS - $STARTTIME))
+echo "$(($ELAPSED_TIME/60)) min $(($ELAPSED_TIME%60)) sec"
+$NEWLINE

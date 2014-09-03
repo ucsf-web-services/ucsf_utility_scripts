@@ -1,0 +1,425 @@
+#!/bin/bash
+#
+# 2013.0403 Frank Farm
+#
+# sf - sync files
+#
+# This bash script simplifies our process of keeping /files folders
+# synchronized across different environments.
+#
+# The script executes rsync after determining the parameters of the call.
+#
+# You can run the script interactively (-i) or with command-line
+# arguments ([site-nickname] [source-nickname] [destination-nickname] [yes|no]).
+#
+# The fourth argument specifies whether to do a dry run, yes or no.
+#
+#############################################################################
+#
+# installation/configuration
+#
+SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+REPOPATH=${SCRIPTPATH%scripts}
+SITEFOLDER="docroot/sites"
+LOCALROOT=$REPOPATH$SITEFOLDER
+#
+# after copying this script to your computer, change LOCALROOT to point to the
+# sites folder in your local Git docroot. DO NOT include a slash at the end of
+# this string. No other changes are required, but if you know what you're doing
+# you can change other items in the variables and paths sections below.
+#
+#############################################################################
+#
+# exit values:
+#
+# 0 = sf ran successfully. if rsync ran, it ran successfully.
+# 1 = sf ran successfully but rsync failed.
+# 2 = incorrect parameters.
+# 3 = can't create temp directory in /tmp
+# 4 = LOCALROOT does not exist
+#
+#############################################################################
+
+#############################################################################
+#
+# variables
+#
+#############################################################################
+OPTIONS="-e ssh -r -v -z --delete --group --links --times --temp-dir=/tmp"
+SITENICKNAMES="pharmacy pharmd pc bts cp qbc pharmsites quit"
+SOURCENICKNAMES="prod stage dev quit"
+DESTINATIONNICKNAMES="stage dev local quit"
+DRYRUN="yes no quit"
+# The PS3 environment variable specifies the string used for the prompt in
+# select statements.
+PS3="Select: "
+
+#############################################################################
+#
+# paths
+#
+#############################################################################
+DEVANDSTAGEHOST="xxxxxxx"
+DEVANDSTAGEUSERNAME="xxxxxxx"
+DEVPATH="/mnt/files/xxx.dev/sites"
+STAGEPATH="/mnt/files/xxx.test/sites"
+PRODHOST="xxxxxxxm"
+PRODUSERNAME="xxxxx"
+PRODPATH="/mnt/files/xxxx.prod/sites"
+TEMPROOT="/tmp"
+
+#############################################################################
+#
+# check that LOCALROOT exists
+#
+#############################################################################
+if [ ! -d "$LOCALROOT" ]; then
+  echo "$0: error: the LOCALROOT specified ("$LOCALROOT") does not exist."
+  echo "To resolve this problem, edit $0 accordingly and see the"
+  echo "installation/configuration section for help."
+  exit 4
+fi
+
+#############################################################################
+#
+# create a directory in /tmp which we use to handle remote source to remote
+# destination synchs. we use a temp folder instead of our local root so that
+# we don't clobber anything we might be working on locally.
+#
+# typically this will look like:
+#
+# /tmp/sf
+# /tmp/sf/pharmacy.ucsf.edu
+# /tmp/sf/pharmacy.ucsf.edu/prod
+# /tmp/sf/pharmacy.ucsf.edu/stage
+# /tmp/sf/pharmd.ucsf.edu
+# /tmp/sf/pharmd.ucsf.edu/prod
+# /tmp/sf/pharmd.ucsf.edu/stage
+#
+# and so forth
+#
+#############################################################################
+tempdirname=`basename $0`
+TMPFILE="$TEMPROOT/$tempdirname"
+# if it doesn't exist...
+if [ ! -d "$TMPFILE" ]; then
+  # then create it...
+  TMPFILE=`mktemp -d -q $TEMPROOT/${tempdirname}`
+  # if the create failed...
+  if [ $? -ne 0 ]; then
+    # then exit...
+    echo "$0: Failed to create temporary directory ${tempdirname} in /tmp (exit code $?). Exiting..."
+    exit 3
+  fi  
+fi
+
+#############################################################################
+#
+# function to display the correct syntax
+#
+#############################################################################
+function display_syntax {
+  echo "interactive usage:"
+  echo "  $0 -i"
+  echo "command-line usage:"
+  echo "  $0 [site] [source] [destination] [dry-run]"
+  echo "site:"
+  echo "  ${SITENICKNAMES%quit}"
+  echo "source:"
+  echo "  ${SOURCENICKNAMES%quit}"
+  echo "destination:"
+  echo "  ${DESTINATIONNICKNAMES%quit}"
+  echo "dry-run:"
+  echo "  yes no"
+}
+
+#############################################################################
+#
+# function to display a summary of the action to be taken
+#
+#############################################################################
+function display_action_summary {
+  echo Synchronizing files for $sitechoice, copying $sourcechoice to $destchoice $dryrunchoice
+}
+
+#############################################################################
+#
+# function to check the exit code for rsync. 0 = successful.
+#
+#############################################################################
+function display_rsync_result {
+  exitcode=$?
+  if [ $exitcode -eq 0 ]; then
+    echo rsync executed successfully
+  else
+    echo rsync exited unsuccessfully with code $exitcode
+    exit 1
+  fi
+}
+
+#############################################################################
+#
+# check for the proper number of arguments -- we accept either 1 or 4
+#
+#############################################################################
+if [ $# -ne 1 -a $# -ne 4 ]; then
+  display_syntax
+  exit 2
+fi
+
+#############################################################################
+#
+# if we have only one argument, we accept only -i for that argument.
+# -i means interactive.
+#
+#############################################################################
+if [ $# = 1 -a "$1" != '-i' ]; then
+  display_syntax
+  exit 2
+fi
+
+#############################################################################
+#
+# if we have four arguments, assign parameters from the command line.
+#
+#############################################################################
+if [ $# = 4 ]; then
+  sitechoice="$1"
+  sourcechoice="$2"
+  destchoice="$3"
+  dryrunchoice="$4"
+fi
+
+#############################################################################
+#
+# interactive mode - start
+#
+#    in this mode we ask the user for the site nickname, source, destination,
+#    and whether this is a test run.
+#
+#############################################################################
+if [ $# = 1 -a "$1" = "-i" ]; then 
+  
+  # get site choice
+  while [ "$sitechoice" = "" ]; do
+    echo Site?
+    select sitechoice in $SITENICKNAMES; do
+      if [ "$sitechoice" = "quit" ]; then
+        echo Exiting...
+        exit 0
+      else
+        echo
+        echo SITE = $sitechoice
+        echo
+        break
+      fi
+    done
+  done
+
+  # get source choice
+  while [ "$sourcechoice" = "" ]; do
+    echo Source?
+    select sourcechoice in $SOURCENICKNAMES; do
+      if [ "$sourcechoice" = "quit" ]; then
+        echo Exiting...
+        exit 0
+      else
+        echo
+        echo SOURCE = $sourcechoice
+        echo
+        break
+      fi
+    done
+  done
+
+  # get destination choice
+  while [ "$destchoice" = "" ]; do
+    echo Destination?
+    select destchoice in $DESTINATIONNICKNAMES; do
+      if [ "$destchoice" = "quit" ]; then
+        echo Exiting...
+        exit 0
+      elif [ "$destchoice" = "$sourcechoice" ]; then
+        echo Error: destination may not match source. Select destination again:
+        destchoice=""
+
+      #############################################################################
+      #
+      # /files should be copied only in this direction: prod->stage->dev->local.
+      # e.g., prod->stage, prod->dev, and prod->local are all fine but local->prod would
+      # delete live (master) data. if you add more nicknames, you need to review this
+      # section to make sure the new code enforces this behavior. as of March 25, 2013,
+      # this section needs to check for only dev->stage since users cannot interactively
+      # select the other incorrect source-destination combinations.
+      #
+      #############################################################################
+      elif [[ ( "$sourcechoice" = "dev" && "$destchoice" = "stage" ) ]]; then
+        echo On that path lies danger. Select destination again:
+        destchoice=""
+      else
+        echo
+        echo DESTINATION = $destchoice
+        echo
+        break
+      fi
+    done
+  done
+
+  # get dry run choice
+  while [ "$dryrunchoice" = "" ]; do
+    echo Dry run?
+    select dryrunchoice in $DRYRUN; do
+       if [ "$dryrunchoice" = "quit" ]; then
+         echo Exiting...
+         exit 0
+       else
+         echo
+         echo DRYRUN = $dryrunchoice
+         echo
+         break
+       fi
+    done
+  done
+fi
+#############################################################################
+#
+# interactive mode - end
+#
+#############################################################################
+
+#############################################################################
+#
+# test that the site nickname specified is in our list of legal choices.
+# the angle brackets ensure that we're searching for a whole word, not
+# just a substring.
+#
+#############################################################################
+if ! echo $SITENICKNAMES | grep -q "\<$sitechoice\>"; then
+  display_syntax
+  exit 2
+fi
+
+#############################################################################
+#
+# expand nicknames to match the names for the corresponding folder on Acquia.
+#
+#############################################################################
+case $sitechoice in
+  pc)
+    sitechoice="pharmchem"
+  ;;
+  cp)
+    sitechoice="clinicalpharmacy"
+  ;;
+  pharmsites)
+    sitechoice="pharm"
+  ;;
+esac
+
+#############################################################################
+#
+# for command-line mode, check for illegal source-destination combinations
+# and if found provide an error message and quit. we need to do this section
+# for only command-line mode because interactive mode validation is already
+# covered above.
+#
+#############################################################################
+if [ $# = 4 ]; then
+  if [[
+    ( "$sourcechoice" = "local" )
+    || ( "$sourcechoice" = "dev" && "$destchoice" = "stage" )
+    || ( "$sourcechoice" = "dev" && "$destchoice" = "prod" )
+    || ( "$sourcechoice" = "stage" && "$destchoice" = "prod" )
+    ]]; then
+    echo On that path lies danger. Exiting...
+    exit 2
+  fi
+fi
+
+#############################################################################
+#
+# if needed for debugging, uncomment the following lines.
+#
+#############################################################################
+#echo sitechoice = "$sitechoice"
+#echo sourcechoice = "$sourcechoice"
+#echo destchoice = "$destchoice"
+#echo dryrunchoice = "$dryrunchoice"
+
+#############################################################################
+#
+# set up dry run choice
+#
+#############################################################################
+if [ "$dryrunchoice" = "yes" ]; then
+  dryrunchoice="--dry-run"
+else
+  dryrunchoice=""
+fi
+
+#############################################################################
+#
+# execute rsync as requested
+#
+# since rsync cannot synchronize files from a remote source to a remote destination
+# for prod-to-stage, prod-to-dev, and stage-to-dev we must synch from the source to
+# our temporary folder, then synch from the temporary folder to the destination.
+# we intentionally do not delete our temp files to save time in case we're doing
+# the same synch later.
+#
+# for all situations in which the destination is local, only one rsync call
+# is required.
+#
+#############################################################################
+if [[ ( "$sourcechoice" = "prod" && "$destchoice" = "stage" ) ]]; then
+  display_action_summary
+  echo Executing: rsync $dryrunchoice $OPTIONS $PRODUSERNAME@$PRODHOST:$PRODPATH/$sitechoice.ucsf.edu/files $TMPFILE/$sitechoice.ucsf.edu
+  rsync $dryrunchoice $OPTIONS $PRODUSERNAME@$PRODHOST:$PRODPATH/$sitechoice.ucsf.edu/files $TMPFILE/$sitechoice.ucsf.edu
+  display_rsync_result
+  # execute the second rsync command only if the first one was successful
+  if [ $? -eq 0 ]; then
+    echo Executing: rsync $dryrunchoice $OPTIONS $TMPFILE/$sitechoice.ucsf.edu/files $DEVANDSTAGEUSERNAME@$DEVANDSTAGEHOST:$STAGEPATH/$sitechoice.ucsf.edu
+    rsync $dryrunchoice $OPTIONS $TMPFILE/$sitechoice.ucsf.edu/files $DEVANDSTAGEUSERNAME@$DEVANDSTAGEHOST:$STAGEPATH/$sitechoice.ucsf.edu
+    display_rsync_result
+  fi
+elif [[ ( "$sourcechoice" = "prod" && "$destchoice" = "dev" ) ]]; then
+  display_action_summary
+  echo Executing: rsync $dryrunchoice $OPTIONS $PRODUSERNAME@$PRODHOST:$PRODPATH/$sitechoice.ucsf.edu/files $TMPFILE/$sitechoice.ucsf.edu
+  rsync $dryrunchoice $OPTIONS $PRODUSERNAME@$PRODHOST:$PRODPATH/$sitechoice.ucsf.edu/files $TMPFILE/$sitechoice.ucsf.edu
+  display_rsync_result
+  # execute the second rsync command only if the first one was successful
+  if [ $? -eq 0 ]; then
+    echo Executing: rsync $dryrunchoice $OPTIONS $TMPFILE/$sitechoice.ucsf.edu/files $DEVANDSTAGEUSERNAME@$DEVANDSTAGEHOST:$DEVPATH/$sitechoice.ucsf.edu
+    rsync $dryrunchoice $OPTIONS $TMPFILE/$sitechoice.ucsf.edu/files $DEVANDSTAGEUSERNAME@$DEVANDSTAGEHOST:$DEVPATH/$sitechoice.ucsf.edu
+    display_rsync_result
+  fi
+elif [[ ( "$sourcechoice" = "prod" && "$destchoice" = "local" ) ]]; then
+  display_action_summary
+  echo Executing: rsync $dryrunchoice $OPTIONS $PRODUSERNAME@$PRODHOST:$PRODPATH/$sitechoice.ucsf.edu/files $LOCALROOT/$sitechoice.ucsf.edu
+  rsync $dryrunchoice $OPTIONS $PRODUSERNAME@$PRODHOST:$PRODPATH/$sitechoice.ucsf.edu/files $LOCALROOT/$sitechoice.ucsf.edu
+  display_rsync_result
+elif [[ ( "$sourcechoice" = "stage" && "$destchoice" = "dev" ) ]]; then
+  display_action_summary
+  echo Executing: rsync $dryrunchoice $OPTIONS $DEVANDSTAGEUSERNAME@$DEVANDSTAGEHOST:$STAGEPATH/$sitechoice.ucsf.edu/files $TMPFILE/$sitechoice.ucsf.edu
+  rsync $dryrunchoice $OPTIONS $DEVANDSTAGEUSERNAME@$DEVANDSTAGEHOST:$STAGEPATH/$sitechoice.ucsf.edu/files $TMPFILE/$sitechoice.ucsf.edu
+  display_rsync_result
+  # execute the second rsync command only if the first one was successful
+  if [ $? -eq 0 ]; then
+    echo Executing: rsync $dryrunchoice $OPTIONS $TMPFILE/$sitechoice.ucsf.edu/files $DEVANDSTAGEUSERNAME@$DEVANDSTAGEHOST:$DEVPATH/$sitechoice.ucsf.edu
+    rsync $dryrunchoice $OPTIONS $TMPFILE/$sitechoice.ucsf.edu/files $DEVANDSTAGEUSERNAME@$DEVANDSTAGEHOST:$DEVPATH/$sitechoice.ucsf.edu
+    display_rsync_result
+  fi
+elif [[ ( "$sourcechoice" = "stage" && "$destchoice" = "local" ) ]]; then
+  display_action_summary
+  echo Executing: rsync $dryrunchoice $OPTIONS $DEVANDSTAGEUSERNAME@$DEVANDSTAGEHOST:$STAGEPATH/$sitechoice.ucsf.edu/files $LOCALROOT/$sitechoice.ucsf.edu
+  rsync $dryrunchoice $OPTIONS $DEVANDSTAGEUSERNAME@$DEVANDSTAGEHOST:$STAGEPATH/$sitechoice.ucsf.edu/files $LOCALROOT/$sitechoice.ucsf.edu
+  display_rsync_result
+elif [[ ( "$sourcechoice" = "dev" && "$destchoice" = "local" ) ]]; then
+  display_action_summary
+  echo Executing: rsync $dryrunchoice $OPTIONS $DEVANDSTAGEUSERNAME@$DEVANDSTAGEHOST:$DEVPATH/$sitechoice.ucsf.edu/files $LOCALROOT/$sitechoice.ucsf.edu
+  rsync $dryrunchoice $OPTIONS $DEVANDSTAGEUSERNAME@$DEVANDSTAGEHOST:$DEVPATH/$sitechoice.ucsf.edu/files $LOCALROOT/$sitechoice.ucsf.edu
+  display_rsync_result
+else
+  display_syntax
+  exit 2
+fi
