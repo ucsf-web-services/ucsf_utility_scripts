@@ -20,7 +20,7 @@ The second would run status on all sites with the ucsf pharmacy image module.
 
 This script is a workhorse for us. We use this with post deploy scripts that have the git date tag. Example- 
 <pre>
-2014-09-02-
+2014-09-02
 </pre>
 
 This means that the same drush commands run in test and production along with the deployment of the git tag.
