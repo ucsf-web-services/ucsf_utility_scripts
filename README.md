@@ -44,7 +44,7 @@ E.g. this will clear all caches on sites in the *test* environment that have the
 ```bash
 ./../scripts/iterator run "cc all|views" test
 ```
-####Running Iterator automatically
+####Running Iterator Automatically
 
 We use a tag naming convention and the Acquia Cloud API "post-code-deploy" hook to run iterator automatically in our test and production enviroments immediately after each tag deployment.
 
