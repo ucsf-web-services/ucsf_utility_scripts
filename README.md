@@ -34,7 +34,7 @@ Module Madness is a reporting script. It let's you know which site is running wh
 
 ####Dependencies
 
-Piggy-bags on the Iterator script and requires the custom Drush commands defined in `ucsf.drush.inc`, so make sure that Drush can find them.
+Piggy-backs on the Iterator script and requires the custom Drush commands defined in `ucsf.drush.inc`, so make sure that Drush can find them.
 
 ###Site Builder:
 
