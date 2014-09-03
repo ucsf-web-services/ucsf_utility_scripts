@@ -1,0 +1,105 @@
+#!/bin/bash
+
+#
+# UCSF Site Builder.
+# Provisions a new site in Acquia's hosting environments using it's Cloud API.
+#
+# Authors:
+#   John Kealy <jkealy@ucsf.edu>
+#   Richard Baker <richard.baker@ucsf.edu>
+#   Stefan Topfstedt <stefan.topfstedt@ucsf.edu>
+#
+# Note:
+# You *must* have your Acquia Cloud API credentials set as environment variables AC_CLOUD_USER and AC_CLOUD_PASS.
+# Otherwise the script will not work correctly.
+main() {
+    # Capture the location of this script from the execution context.
+    local -r script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    local -r docroot="${script_dir}/../docroot"
+
+    local ok=0
+
+    local domain
+    local db_name
+
+    # solicit domain name from user input
+    until ((${ok} == 1))
+    do
+        echo -n "Please enter the requested UCSF Med-Center (ucsfmedicalcenter.org) or Campus (ucsf.edu) subdomain: "
+        read domain
+
+        domain=$( echo "${domain}" | tr '[:upper:]' '[:lower:]')
+
+        if [[ ${domain} =~ ^(.+)(\.ucsfmedicalcenter\.org|\.ucsf\.edu)$ ]]
+        then
+            ok=1
+            # Extract the subdomain prefix. It'll be used as the database name.
+            db_name="${BASH_REMATCH[1]}"
+        else
+           echo "ERROR: Not a ucsfmedicalcenter.org or ucsf.edu subdomain."
+           echo
+        fi
+    done
+
+    echo "Select full development and production (y/n)?"
+    read full_environment
+
+    cd "${docroot}"
+
+    # Make sure repository is up to date
+    # Pull from master repository
+    git pull
+
+
+    # Create new directory on git
+    cp -R "${docroot}/sites/mysite.ucsf.edu/" "${docroot}/sites/${domain}"
+
+    # Change the database connection.
+    sed "s/newsite/${db_name}/" "${docroot}/sites/mysite.ucsf.edu/settings.php" > "${docroot}/sites/${domain}/settings.php"
+
+    # Add new files to git
+    git add -f "${docroot}/sites/${domain}/settings.php"
+    git add "${docroot}/sites/${domain}/."
+
+    if [[ "${full_environment}" = "y" ]]
+    then
+        # Build full enviroment and create dev directory
+        cp -R "${docroot}/sites/${domain}/" "${docroot}/sites/dev.${domain}"
+        echo "Adding dev directories to git"
+        git add -f "${docroot}/sites/dev.${domain}/settings.php"
+        git add  "${docroot}/sites/dev.${domain}/."
+        git commit -m "Creating ${domain}, full enviroment (dev and stage/prod folders)"
+    else
+        echo "Building Prod Only Enviroment"
+        git commit -m "Creating ${domain}, production only site"
+    fi
+
+    echo "Pushing to master repository"
+    git push origin master
+
+    # Tests if site is hosted somewhere else
+    local -r lookup_res=`nslookup "$domain"`
+    local -r fail_count=`echo "$lookup_res" | grep "** server can't find " | wc -l`
+
+    if [ $fail_count -eq 1 ]
+    then
+        # Create a domain on acquia prod because it does not exist
+        echo "Site doesn't seem to exits, creating standard URL."
+        echo
+        curl -s -u ${AQ_CLOUD_USER}:${AQ_CLOUD_PASS} -X POST https://cloudapi.acquia.com/v1/sites/ucsfp/envs/prod/domains/${domain}.json
+    else
+        # Create a domain on acquia with a preview prefix because it does exist
+        echo "Site exists! Creating preview site."
+        echo
+        curl -s -u ${AQ_CLOUD_USER}:${AQ_CLOUD_PASS} -X POST https://cloudapi.acquia.com/v1/sites/ucsfp/envs/prod/domains/preview.${domain}.json
+    fi
+
+    # Create mandatory stage url/environment and database
+    curl -s -u ${AQ_CLOUD_USER}:${AQ_CLOUD_PASS} -X POST https://cloudapi.acquia.com/v1/sites/ucsfp/envs/test/domains/test.${domain}.json
+    curl -s -u ${AQ_CLOUD_USER}:${AQ_CLOUD_PASS} -X POST --data-binary '{"db":"'${db_name}'"}' https://cloudapi.acquia.com/v1/sites/ucsfp/dbs.json
+
+    echo
+    echo "Done building ${domain}."
+}
+
+main "$@"
