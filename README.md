@@ -1,4 +1,4 @@
-#ucsf_utility_scripts
+#UCSF Utility Scripts
 
 The Utitlity Scripts are primaryly useful if you are on Acquia Cloud hosting. Posting on Github so that other Acquia clients can use and collaborate on the scripts. These are provided as is with no support. That being said, we are happy to collaborate with other groups, particularly other Higher Ed and Non-profits.
 
