@@ -1,0 +1,46 @@
+#!/bin/bash
+#
+# Wrapper script around the "modulemadness" custom Drush command.
+# It iterates over all sites in a given site environment and reports on module/theme usage.
+#
+# See:
+#   <env-root>/scripts/iterator
+#       Utility shell script for iterating over sites configured in the given environment.
+#   <env-root>/docroot/sites/all/drush/ucsf.drush.inc
+#       Defines the "modulemadness" Drush command.
+#
+# Authors:
+#   Eric Davila <davilae@pharmacy.ucsf.edu>
+#   Stefan Topfstedt <stefan.topfstedt@ucsf.edu>
+#
+set -e
+
+usage() {
+    echo "Please provide the Acquia site environment (dev|test|prod|ra) as first argument to this script."
+}
+
+#
+# $1 - The site environment. Allowed values are "dev", "test", "prod" and "ra". Mandatory.
+#
+main() {
+    if [[ -z $1 ]]
+    then
+        usage
+        exit
+    fi
+
+    local -r acenv=$1
+    local -r timestamp=`date +%Y%m%d_%H%M%S`
+    local -r output_dir="$HOME/modulemadness/${acenv}/${timestamp}"
+    local -r script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+    # Create a new output directory underneath the user's home dir.
+    mkdir -p "$output_dir"
+
+    # Run interator from the environment's docroot.
+    # Note: The docroot is expected to be a sibling of the scripts directory in the file system hierarchy.
+    cd "${script_dir}/../docroot"
+    ${script_dir}/iterator run "modulemadness ${output_dir}" ${acenv} &> "${output_dir}/iterator.log"
+}
+
+main "$@"
