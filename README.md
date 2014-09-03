@@ -23,3 +23,6 @@ Module Madness is a reporting script. It let's you know which site is running wh
 
 This script uses the Acquia API and git to quickly build empty site document roots based on an orginal site called mysite.ucsf.edu
 
+##Sync files 
+
+This script allow for more fine grained file updates between sites than the current Acquia workflow tool. Very useful when migrating a new site from Dev to Test and then Produciton.
