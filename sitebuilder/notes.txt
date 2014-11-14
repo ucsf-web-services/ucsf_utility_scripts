@@ -1,3 +1,3 @@
 Sitebuilder was built by UCSF for UCSF use. Provided as is with no support.
 
-OKn now that's done. This is our first public release of our code. Let us know if it's useful to you.
+OK now that's done. This is our first public release of our code. Let us know if it's useful to you.
